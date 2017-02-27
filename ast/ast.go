@@ -29,17 +29,92 @@ package ast
 // Node represents an item in the AST.
 type Node interface {
 	nodeMark()
-	Line() int
-	setLine(l int)
+	GetLine() int
+	setLine(int)
+	GetKind() NodeKind
+	setKind(NodeKind)
+}
+
+type NodeKind uint
+
+const (
+	ErrNode NodeKind = iota
+	AssignNode
+	DoBlockNode
+	IfNode
+	WhileNode
+	RepeatNode
+	ForNumericNode
+	ForGenericNode
+	GotoNode
+	LabelNode
+	ReturnNode
+	OpNode
+	FuncCallNode
+	FuncDeclNode
+	TableConstructorNode
+	TableAccessorNode
+	ParensNode
+	ConstIntNode
+	ConstFloatNode
+	ConstStringNode
+	ConstIdentNode
+	ConstBoolNode
+	ConstNilNode
+	ConstVariadicNode
+)
+
+var nodeKindNames = [][]byte{
+	[]byte("Err"),
+	[]byte("Assign"),
+	[]byte("DoBlock"),
+	[]byte("If"),
+	[]byte("While"),
+	[]byte("Repeat"),
+	[]byte("ForNumeric"),
+	[]byte("ForGeneric"),
+	[]byte("Goto"),
+	[]byte("Label"),
+	[]byte("Return"),
+	[]byte("Op"),
+	[]byte("FuncCall"),
+	[]byte("FuncDecl"),
+	[]byte("TableConstructor"),
+	[]byte("TableAccessor"),
+	[]byte("Parens"),
+	[]byte("ConstInt"),
+	[]byte("ConstFloat"),
+	[]byte("ConstString"),
+	[]byte("ConstIdent"),
+	[]byte("ConstBool"),
+	[]byte("ConstNil"),
+	[]byte("ConstVariadic"),
+}
+
+func (o NodeKind) MarshalText() ([]byte, error) {
+	op := uint(o)
+	if uint(len(nodeKindNames)) <= op || op < 0 {
+		return nodeKindNames[0], nil
+	}
+
+	return nodeKindNames[int(o)], nil
+}
+
+func (o NodeKind) String() string {
+	name, _ := o.MarshalText()
+	return string(name)
 }
 
 type nodeBase struct {
-	line int
+	Kind NodeKind
+	Line int
 }
 
-func (n *nodeBase) nodeMark()     {}
-func (n *nodeBase) Line() int     { return n.line }
-func (n *nodeBase) setLine(l int) { n.line = l }
+func (nodeBase) nodeMark()             {}
+func (n nodeBase) GetLine() int        { return n.Line }
+func (n *nodeBase) setLine(l int)      { n.Line = l }
+func (n nodeBase) GetKind() NodeKind   { return n.Kind }
+func (n *nodeBase) setKind(k NodeKind) { n.Kind = k }
 
 // Stmt represents a statement Node.
 type Stmt interface {
@@ -92,14 +167,68 @@ func remove(b []Stmt, at int) []Stmt {
 	return append(b[:at], b[at+1:]...)
 }
 
-// stmtLine attaches line information to a Stmt and returns the Stmt.
-func stmtLine(n Stmt, line int) Stmt {
+// stmtInfo attaches line information to a Stmt and returns the Stmt.
+func stmtInfo(n Stmt, line int) Stmt {
+	var k NodeKind
+	switch n.(type) {
+	case *Assign:
+		k = AssignNode
+	case *DoBlock:
+		k = DoBlockNode
+	case *If:
+		k = IfNode
+	case *WhileLoop:
+		k = WhileNode
+	case *RepeatUntilLoop:
+		k = RepeatNode
+	case *ForLoopGeneric:
+		k = ForGenericNode
+	case *ForLoopNumeric:
+		k = ForNumericNode
+	case *Goto:
+		k = GotoNode
+	case *Label:
+		k = LabelNode
+	case *Return:
+		k = ReturnNode
+	}
+	n.setKind(k)
 	n.setLine(line)
 	return n
 }
 
-// exprLine attaches line information to a Expr and returns the Expr.
-func exprLine(n Expr, line int) Expr {
+// exprInfo attaches line information to a Expr and returns the Expr.
+func exprInfo(n Expr, line int) Expr {
+	var k NodeKind
+	switch n.(type) {
+	case *FuncDecl:
+		k = FuncDeclNode
+	case *FuncCall:
+		k = FuncCallNode
+	case *Operator:
+		k = OpNode
+	case *Parens:
+		k = ParensNode
+	case *TableConstructor:
+		k = TableConstructorNode
+	case *TableAccessor:
+		k = TableAccessorNode
+	case *ConstInt:
+		k = ConstIntNode
+	case *ConstFloat:
+		k = ConstFloatNode
+	case *ConstBool:
+		k = ConstBoolNode
+	case *ConstNil:
+		k = ConstNilNode
+	case *ConstString:
+		k = ConstStringNode
+	case *ConstVariadic:
+		k = ConstVariadicNode
+	case *ConstIdent:
+		k = ConstIdentNode
+	}
+	n.setKind(k)
 	n.setLine(line)
 	return n
 }

@@ -66,7 +66,7 @@ func (p *parser) funcDeclStat(local bool) Stmt {
 	p.l.getCurrent(tknFunction)
 
 	// Function declarations are exploded into an explicit assignment statement.
-	node := stmtLine(&Assign{
+	node := stmtInfo(&Assign{
 		LocalFunc: local,
 		Targets:   []Expr{nil},
 		Values:    []Expr{nil},
@@ -77,7 +77,7 @@ func (p *parser) funcDeclStat(local bool) Stmt {
 	hasSelf := false
 	if local {
 		p.l.getCurrent(tknName)
-		ident = exprLine(&ConstIdent{
+		ident = exprInfo(&ConstIdent{
 			Value: p.l.current.Lexeme,
 		}, p.l.current.Line)
 	} else {
@@ -87,9 +87,9 @@ func (p *parser) funcDeclStat(local bool) Stmt {
 			p.l.getCurrent(tknColon)
 			line := p.l.current.Line
 			p.l.getCurrent(tknName)
-			ident = exprLine(&TableAccessor{
+			ident = exprInfo(&TableAccessor{
 				Obj: ident,
-				Key: exprLine(&ConstString{
+				Key: exprInfo(&ConstString{
 					Value: p.l.current.Lexeme,
 				}, p.l.current.Line),
 			}, line)
@@ -116,11 +116,11 @@ func (p *parser) statement() Stmt {
 	switch p.l.look.Type {
 	case tknUnnecessary: // ;
 		p.l.getCurrent(tknUnnecessary)
-		return stmtLine(&DoBlock{Block: nil}, p.l.current.Line) // FIXME!
+		return stmtInfo(&DoBlock{Block: nil}, p.l.current.Line) // FIXME!
 	case tknIf:
 		p.l.getCurrent(tknIf)
 		line := p.l.current.Line
-		node := stmtLine(&If{
+		node := stmtInfo(&If{
 			Cond: p.expression(),
 		}, line)
 		rnode := node
@@ -135,7 +135,7 @@ func (p *parser) statement() Stmt {
 			case tknElseif:
 				line := p.l.current.Line
 				pnode := node
-				node = stmtLine(&If{
+				node = stmtInfo(&If{
 					Cond: p.expression(),
 				}, line)
 
@@ -156,7 +156,7 @@ func (p *parser) statement() Stmt {
 		line := p.l.current.Line
 		cond := p.expression()
 		p.l.getCurrent(tknDo)
-		return stmtLine(&WhileLoop{
+		return stmtInfo(&WhileLoop{
 			Cond:  cond,
 			Block: p.block(tknEnd),
 		}, line)
@@ -164,7 +164,7 @@ func (p *parser) statement() Stmt {
 		p.l.getCurrent(tknDo)
 		line := p.l.current.Line
 		rtn := p.block(tknEnd)
-		return stmtLine(&DoBlock{Block: rtn}, line)
+		return stmtInfo(&DoBlock{Block: rtn}, line)
 	case tknFor:
 		p.l.getCurrent(tknFor)
 		line := p.l.current.Line
@@ -190,7 +190,7 @@ func (p *parser) statement() Stmt {
 				p.l.getCurrent(tknSeperator)
 				s = p.expression()
 			} else {
-				s = exprLine(&ConstInt{Value: "1"}, p.l.current.Line)
+				s = exprInfo(&ConstInt{Value: "1"}, p.l.current.Line)
 			}
 		} else {
 			for {
@@ -212,7 +212,7 @@ func (p *parser) statement() Stmt {
 		}
 		p.l.getCurrent(tknDo)
 		if numeric {
-			return stmtLine(&ForLoopNumeric{
+			return stmtInfo(&ForLoopNumeric{
 				Counter: counter,
 				Init:    i,
 				Limit:   l,
@@ -220,7 +220,7 @@ func (p *parser) statement() Stmt {
 				Block:   p.block(tknEnd),
 			}, line)
 		}
-		return stmtLine(&ForLoopGeneric{
+		return stmtInfo(&ForLoopGeneric{
 			Locals: locals,
 			Init:   init,
 			Block:  p.block(tknEnd),
@@ -229,7 +229,7 @@ func (p *parser) statement() Stmt {
 		p.l.getCurrent(tknRepeat)
 		line := p.l.current.Line
 		blk := p.block(tknUntil)
-		return stmtLine(&RepeatUntilLoop{
+		return stmtInfo(&RepeatUntilLoop{
 			Cond:  p.expression(),
 			Block: blk,
 		}, line)
@@ -248,7 +248,7 @@ func (p *parser) statement() Stmt {
 		for !p.l.checkLook(tknSet) {
 			c++
 			p.l.getCurrent(tknName)
-			targets = append(targets, exprLine(&ConstIdent{
+			targets = append(targets, exprInfo(&ConstIdent{
 				Value: p.l.current.Lexeme,
 			}, p.l.current.Line))
 			if !p.l.checkLook(tknSeperator) {
@@ -266,7 +266,7 @@ func (p *parser) statement() Stmt {
 				vals = append(vals, p.expression())
 			}
 		}
-		return stmtLine(&Assign{
+		return stmtInfo(&Assign{
 			LocalDecl: true,
 			Targets:   targets,
 			Values:    vals,
@@ -277,7 +277,7 @@ func (p *parser) statement() Stmt {
 		p.l.getCurrent(tknName)
 		lbl := p.l.current.Lexeme
 		p.l.getCurrent(tknDblColon)
-		return stmtLine(&Label{Label: lbl}, line)
+		return stmtInfo(&Label{Label: lbl}, line)
 	case tknReturn:
 		p.l.getCurrent(tknReturn)
 		line := p.l.current.Line
@@ -289,19 +289,19 @@ func (p *parser) statement() Stmt {
 			}
 			p.l.getCurrent(tknSeperator)
 		}
-		return stmtLine(&Return{Items: items}, line)
+		return stmtInfo(&Return{Items: items}, line)
 	case tknBreak:
 		p.l.getCurrent(tknBreak)
-		return stmtLine(&Goto{Label: "break", IsBreak: true}, p.l.current.Line)
+		return stmtInfo(&Goto{Label: "break", IsBreak: true}, p.l.current.Line)
 	case tknContinue:
 		// The lexer will never generate this unless you uncomment the definition for the "continue" keyword.
 		p.l.getCurrent(tknContinue)
-		return stmtLine(&Goto{Label: "continue", IsBreak: true}, p.l.current.Line)
+		return stmtInfo(&Goto{Label: "continue", IsBreak: true}, p.l.current.Line)
 	case tknGoto:
 		p.l.getCurrent(tknGoto)
 		line := p.l.current.Line
 		p.l.getCurrent(tknName)
-		return stmtLine(&Goto{Label: p.l.current.Lexeme}, line)
+		return stmtInfo(&Goto{Label: p.l.current.Lexeme}, line)
 	case tknOParen:
 		p.l.getCurrent(tknOParen)
 		ident := p.expression()
@@ -325,7 +325,7 @@ func (p *parser) statement() Stmt {
 			p.l.getCurrent(tknSeperator)
 			vals = append(vals, p.expression())
 		}
-		return stmtLine(&Assign{
+		return stmtInfo(&Assign{
 			Targets: targets,
 			Values:  vals,
 		}, line)

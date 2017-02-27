@@ -26,7 +26,7 @@ package ast
 // If the ident chain ends with a :ident part this does not read it.
 func (p *parser) ident() Expr {
 	p.l.getCurrent(tknName)
-	ident := exprLine(&ConstIdent{
+	ident := exprInfo(&ConstIdent{
 		Value: p.l.current.Lexeme,
 	}, p.l.current.Line)
 
@@ -36,7 +36,7 @@ func (p *parser) ident() Expr {
 			p.l.getCurrent(tknOIndex)
 
 			line := p.l.current.Line
-			ident = exprLine(&TableAccessor{
+			ident = exprInfo(&TableAccessor{
 				Obj: ident,
 				Key: p.expression(),
 			}, line)
@@ -46,9 +46,9 @@ func (p *parser) ident() Expr {
 			p.l.getCurrent(tknDot)
 			line := p.l.current.Line
 			p.l.getCurrent(tknName)
-			ident = exprLine(&TableAccessor{
+			ident = exprInfo(&TableAccessor{
 				Obj: ident,
-				Key: exprLine(&ConstString{
+				Key: exprInfo(&ConstString{
 					Value: p.l.current.Lexeme,
 				}, p.l.current.Line),
 			}, line)
@@ -67,7 +67,7 @@ func (p *parser) funcCall(ident Expr) Expr {
 		p.l.getCurrent(tknColon)
 		p.l.getCurrent(tknName)
 		r = ident
-		f = exprLine(&ConstString{
+		f = exprInfo(&ConstString{
 			Value: p.l.current.Lexeme,
 		}, p.l.current.Line)
 	} else {
@@ -80,7 +80,7 @@ func (p *parser) funcCall(ident Expr) Expr {
 		args = append(args, p.tblConstruct())
 	case tknString:
 		p.l.getCurrent(tknString)
-		args = append(args, exprLine(&ConstString{
+		args = append(args, exprInfo(&ConstString{
 			Value: p.l.current.Lexeme,
 		}, p.l.current.Line))
 	case tknOParen:
@@ -97,7 +97,7 @@ func (p *parser) funcCall(ident Expr) Expr {
 		p.l.getCurrent(tknOBracket, tknString, tknOParen) // For the error message
 	}
 
-	return exprLine(&FuncCall{
+	return exprInfo(&FuncCall{
 		Receiver: r,
 		Function: f,
 		Args:     args,
@@ -135,7 +135,7 @@ func (p *parser) funcDeclBody(hasSelf bool) Expr {
 	// Read Block
 	block := p.block(tknEnd)
 
-	return exprLine(&FuncDecl{
+	return exprInfo(&FuncDecl{
 		Params:     params,
 		IsVariadic: variadic,
 		Block:      block,
@@ -156,7 +156,7 @@ func (p *parser) tblConstruct() Expr {
 				break
 			}
 			p.l.getCurrent(tknName)
-			keys = append(keys, exprLine(&ConstString{Value: p.l.current.Lexeme}, p.l.current.Line))
+			keys = append(keys, exprInfo(&ConstString{Value: p.l.current.Lexeme}, p.l.current.Line))
 			p.l.getCurrent(tknSet)
 		case tknOIndex:
 			p.l.getCurrent(tknOIndex)
@@ -176,7 +176,7 @@ func (p *parser) tblConstruct() Expr {
 
 	p.l.getCurrent(tknCBracket)
 
-	return exprLine(&TableConstructor{
+	return exprInfo(&TableConstructor{
 		Keys: keys,
 		Vals: vals,
 	}, line)
@@ -285,7 +285,7 @@ func (p *parser) subexpr(limit int) Expr {
 	if ok {
 		p.l.advance()
 		line := p.l.current.Line
-		e1 = exprLine(&Operator{Op: op, Right: p.subexpr(12)}, line)
+		e1 = exprInfo(&Operator{Op: op, Right: p.subexpr(12)}, line)
 	} else {
 		e1 = p.value()
 	}
@@ -296,7 +296,7 @@ func (p *parser) subexpr(limit int) Expr {
 	for ok && priorities[op].left > limit {
 		p.l.advance()
 		line := p.l.current.Line
-		e1 = exprLine(&Operator{Op: op, Left: e1, Right: p.subexpr(priorities[op].right)}, line)
+		e1 = exprInfo(&Operator{Op: op, Left: e1, Right: p.subexpr(priorities[op].right)}, line)
 
 		op, ok = tknToBinOp[p.l.look.Type]
 	}
@@ -320,7 +320,7 @@ Scroll down far enough and you will come to some code that is still in use, just
 // 	for p.l.checkLook(tknOr) {
 // 		p.l.getCurrent(tknOr)
 // 		line := p.l.current.Line
-// 		l = exprLine(&Operator{Op: OpOr, Left: l, Right: p.valAnd()}, line)
+// 		l = exprInfo(&Operator{Op: OpOr, Left: l, Right: p.valAnd()}, line)
 // 	}
 // 	return l
 // }
@@ -330,7 +330,7 @@ Scroll down far enough and you will come to some code that is still in use, just
 // 	for p.l.checkLook(tknAnd) {
 // 		p.l.getCurrent(tknAnd)
 // 		line := p.l.current.Line
-// 		l = exprLine(&Operator{Op: OpAnd, Left: l, Right: p.valCmp()}, line)
+// 		l = exprInfo(&Operator{Op: OpAnd, Left: l, Right: p.valCmp()}, line)
 // 	}
 // 	return l
 // }
@@ -342,17 +342,17 @@ Scroll down far enough and you will come to some code that is still in use, just
 // 		line := p.l.current.Line
 // 		switch p.l.current.Type {
 // 		case tknEQ:
-// 			l = exprLine(&Operator{Op: OpEqual, Left: l, Right: p.valBOr()}, line)
+// 			l = exprInfo(&Operator{Op: OpEqual, Left: l, Right: p.valBOr()}, line)
 // 		case tknGT:
-// 			l = exprLine(&Operator{Op: OpGreaterThan, Left: l, Right: p.valBOr()}, line)
+// 			l = exprInfo(&Operator{Op: OpGreaterThan, Left: l, Right: p.valBOr()}, line)
 // 		case tknGE:
-// 			l = exprLine(&Operator{Op: OpGreaterOrEqual, Left: l, Right: p.valBOr()}, line)
+// 			l = exprInfo(&Operator{Op: OpGreaterOrEqual, Left: l, Right: p.valBOr()}, line)
 // 		case tknLT:
-// 			l = exprLine(&Operator{Op: OpLessThan, Left: l, Right: p.valBOr()}, line)
+// 			l = exprInfo(&Operator{Op: OpLessThan, Left: l, Right: p.valBOr()}, line)
 // 		case tknLE:
-// 			l = exprLine(&Operator{Op: OpLessOrEqual, Left: l, Right: p.valBOr()}, line)
+// 			l = exprInfo(&Operator{Op: OpLessOrEqual, Left: l, Right: p.valBOr()}, line)
 // 		case tknNE:
-// 			l = exprLine(&Operator{Op: OpNotEqual, Left: l, Right: p.valBOr()}, line)
+// 			l = exprInfo(&Operator{Op: OpNotEqual, Left: l, Right: p.valBOr()}, line)
 // 		}
 // 	}
 // 	return l
@@ -363,7 +363,7 @@ Scroll down far enough and you will come to some code that is still in use, just
 // 	for p.l.checkLook(tknBOr) {
 // 		p.l.getCurrent(tknBOr)
 // 		line := p.l.current.Line
-// 		l = exprLine(&Operator{Op: OpBinOR, Left: l, Right: p.valBXOr()}, line)
+// 		l = exprInfo(&Operator{Op: OpBinOR, Left: l, Right: p.valBXOr()}, line)
 // 	}
 // 	return l
 // }
@@ -373,7 +373,7 @@ Scroll down far enough and you will come to some code that is still in use, just
 // 	for p.l.checkLook(tknBXOr) {
 // 		p.l.getCurrent(tknBXOr)
 // 		line := p.l.current.Line
-// 		l = exprLine(&Operator{Op: OpBinXOR, Left: l, Right: p.valBAnd()}, line)
+// 		l = exprInfo(&Operator{Op: OpBinXOR, Left: l, Right: p.valBAnd()}, line)
 // 	}
 // 	return l
 // }
@@ -383,7 +383,7 @@ Scroll down far enough and you will come to some code that is still in use, just
 // 	for p.l.checkLook(tknBAnd) {
 // 		p.l.getCurrent(tknBAnd)
 // 		line := p.l.current.Line
-// 		l = exprLine(&Operator{Op: OpBinAND, Left: l, Right: p.valShift()}, line)
+// 		l = exprInfo(&Operator{Op: OpBinAND, Left: l, Right: p.valShift()}, line)
 // 	}
 // 	return l
 // }
@@ -395,9 +395,9 @@ Scroll down far enough and you will come to some code that is still in use, just
 // 		line := p.l.current.Line
 // 		switch p.l.current.Type {
 // 		case tknShiftL:
-// 			l = exprLine(&Operator{Op: OpBinShiftL, Left: l, Right: p.valConcat()}, line)
+// 			l = exprInfo(&Operator{Op: OpBinShiftL, Left: l, Right: p.valConcat()}, line)
 // 		case tknShiftR:
-// 			l = exprLine(&Operator{Op: OpBinShiftR, Left: l, Right: p.valConcat()}, line)
+// 			l = exprInfo(&Operator{Op: OpBinShiftR, Left: l, Right: p.valConcat()}, line)
 // 		}
 // 	}
 // 	return l
@@ -412,10 +412,10 @@ Scroll down far enough and you will come to some code that is still in use, just
 // 		// I... Think?
 // 		// This would have the effect of treating the remainder of the expression like it was in
 // 		// parenthesis, which (if I am thinking correctly) is basically what right associative is...
-// 		//return exprLine(&Operator{Op: OpConcat, Left: l, Right: p.expression()}, line)
+// 		//return exprInfo(&Operator{Op: OpConcat, Left: l, Right: p.expression()}, line)
 
 // 		// Apparently not, maybe this?
-// 		return exprLine(&Operator{Op: OpConcat, Left: l, Right: p.valConcat()}, line)
+// 		return exprInfo(&Operator{Op: OpConcat, Left: l, Right: p.valConcat()}, line)
 // 	}
 // 	return l
 // }
@@ -427,9 +427,9 @@ Scroll down far enough and you will come to some code that is still in use, just
 // 		line := p.l.current.Line
 // 		switch p.l.current.Type {
 // 		case tknAdd:
-// 			l = exprLine(&Operator{Op: OpAdd, Left: l, Right: p.valMul()}, line)
+// 			l = exprInfo(&Operator{Op: OpAdd, Left: l, Right: p.valMul()}, line)
 // 		case tknSub:
-// 			l = exprLine(&Operator{Op: OpSub, Left: l, Right: p.valMul()}, line)
+// 			l = exprInfo(&Operator{Op: OpSub, Left: l, Right: p.valMul()}, line)
 // 		}
 // 	}
 // 	return l
@@ -442,13 +442,13 @@ Scroll down far enough and you will come to some code that is still in use, just
 // 		line := p.l.current.Line
 // 		switch p.l.current.Type {
 // 		case tknMul:
-// 			l = exprLine(&Operator{Op: OpMul, Left: l, Right: p.valUnOp()}, line)
+// 			l = exprInfo(&Operator{Op: OpMul, Left: l, Right: p.valUnOp()}, line)
 // 		case tknDiv:
-// 			l = exprLine(&Operator{Op: OpDiv, Left: l, Right: p.valUnOp()}, line)
+// 			l = exprInfo(&Operator{Op: OpDiv, Left: l, Right: p.valUnOp()}, line)
 // 		case tknIDiv:
-// 			l = exprLine(&Operator{Op: OpIDiv, Left: l, Right: p.valUnOp()}, line)
+// 			l = exprInfo(&Operator{Op: OpIDiv, Left: l, Right: p.valUnOp()}, line)
 // 		case tknMod:
-// 			l = exprLine(&Operator{Op: OpMod, Left: l, Right: p.valUnOp()}, line)
+// 			l = exprInfo(&Operator{Op: OpMod, Left: l, Right: p.valUnOp()}, line)
 // 		}
 // 	}
 // 	return l
@@ -459,19 +459,19 @@ Scroll down far enough and you will come to some code that is still in use, just
 // 	case tknNot:
 // 		p.l.getCurrent(tknNot)
 // 		line := p.l.current.Line
-// 		return exprLine(&Operator{Op: OpNot, Right: p.valUnOp()}, line)
+// 		return exprInfo(&Operator{Op: OpNot, Right: p.valUnOp()}, line)
 // 	case tknLen:
 // 		p.l.getCurrent(tknLen)
 // 		line := p.l.current.Line
-// 		return exprLine(&Operator{Op: OpLength, Right: p.valUnOp()}, line)
+// 		return exprInfo(&Operator{Op: OpLength, Right: p.valUnOp()}, line)
 // 	case tknBXOr:
 // 		p.l.getCurrent(tknBXOr)
 // 		line := p.l.current.Line
-// 		return exprLine(&Operator{Op: OpBinNot, Right: p.valUnOp()}, line)
+// 		return exprInfo(&Operator{Op: OpBinNot, Right: p.valUnOp()}, line)
 // 	case tknSub:
 // 		p.l.getCurrent(tknSub)
 // 		line := p.l.current.Line
-// 		return exprLine(&Operator{Op: OpUMinus, Right: p.valUnOp()}, line)
+// 		return exprInfo(&Operator{Op: OpUMinus, Right: p.valUnOp()}, line)
 // 	default:
 // 		return p.valPow()
 // 	}
@@ -484,7 +484,7 @@ Scroll down far enough and you will come to some code that is still in use, just
 // 		p.l.getCurrent(tknPow)
 // 		line := p.l.current.Line
 // 		// See valConcat.
-// 		return exprLine(&Operator{Op: OpPow, Left: l, Right: p.valPow()}, line)
+// 		return exprInfo(&Operator{Op: OpPow, Left: l, Right: p.valPow()}, line)
 // 	}
 // 	return l
 // }
@@ -499,25 +499,25 @@ func (p *parser) value() Expr {
 		return p.funcDeclBody(false)
 	case tknTrue:
 		p.l.getCurrent(tknTrue)
-		return exprLine(&ConstBool{Value: true}, p.l.current.Line)
+		return exprInfo(&ConstBool{Value: true}, p.l.current.Line)
 	case tknFalse:
 		p.l.getCurrent(tknFalse)
-		return exprLine(&ConstBool{Value: false}, p.l.current.Line)
+		return exprInfo(&ConstBool{Value: false}, p.l.current.Line)
 	case tknNil:
 		p.l.getCurrent(tknNil)
-		return exprLine(&ConstNil{}, p.l.current.Line)
+		return exprInfo(&ConstNil{}, p.l.current.Line)
 	case tknVariadic:
 		p.l.getCurrent(tknVariadic)
-		return exprLine(&ConstVariadic{}, p.l.current.Line)
+		return exprInfo(&ConstVariadic{}, p.l.current.Line)
 	case tknInt:
 		p.l.getCurrent(tknInt)
-		return exprLine(&ConstInt{Value: p.l.current.Lexeme}, p.l.current.Line)
+		return exprInfo(&ConstInt{Value: p.l.current.Lexeme}, p.l.current.Line)
 	case tknFloat:
 		p.l.getCurrent(tknFloat)
-		return exprLine(&ConstFloat{Value: p.l.current.Lexeme}, p.l.current.Line)
+		return exprInfo(&ConstFloat{Value: p.l.current.Lexeme}, p.l.current.Line)
 	case tknString:
 		p.l.getCurrent(tknString)
-		return exprLine(&ConstString{Value: p.l.current.Lexeme}, p.l.current.Line)
+		return exprInfo(&ConstString{Value: p.l.current.Lexeme}, p.l.current.Line)
 	default:
 		return p.suffixedValue()
 	}
@@ -532,7 +532,7 @@ func (p *parser) suffixedValue() Expr {
 			p.l.getCurrent(tknOIndex)
 
 			line := p.l.current.Line
-			l = exprLine(&TableAccessor{
+			l = exprInfo(&TableAccessor{
 				Obj: l,
 				Key: p.expression(),
 			}, line)
@@ -543,16 +543,16 @@ func (p *parser) suffixedValue() Expr {
 			line := p.l.current.Line
 			p.l.getCurrent(tknName)
 			if p.l.checkLook(tknColon, tknOParen) {
-				l = p.funcCall(exprLine(&TableAccessor{
+				l = p.funcCall(exprInfo(&TableAccessor{
 					Obj: l,
-					Key: exprLine(&ConstString{
+					Key: exprInfo(&ConstString{
 						Value: p.l.current.Lexeme,
 					}, p.l.current.Line),
 				}, line))
 			} else {
-				l = exprLine(&TableAccessor{
+				l = exprInfo(&TableAccessor{
 					Obj: l,
-					Key: exprLine(&ConstString{
+					Key: exprInfo(&ConstString{
 						Value: p.l.current.Lexeme,
 					}, p.l.current.Line),
 				}, line)
@@ -569,14 +569,14 @@ func (p *parser) primaryValue() Expr {
 	switch p.l.look.Type {
 	case tknName:
 		p.l.getCurrent(tknName)
-		return exprLine(&ConstIdent{
+		return exprInfo(&ConstIdent{
 			Value: p.l.current.Lexeme,
 		}, p.l.current.Line)
 	case tknOParen:
 		p.l.getCurrent(tknOParen)
 
 		line := p.l.current.Line
-		l := exprLine(&Parens{
+		l := exprInfo(&Parens{
 			Inner: p.expression(),
 		}, line)
 
