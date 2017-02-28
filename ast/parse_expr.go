@@ -279,6 +279,9 @@ var tknToUnOp = map[int]opTyp{
 }
 
 func (p *parser) subexpr(limit int) Expr {
+	if p.l.look.Type == tknComment {
+		p.l.advance()
+	}
 	// Grab the starting left hand side of the expression
 	var e1 Expr
 	op, ok := tknToUnOp[p.l.look.Type]
@@ -288,6 +291,10 @@ func (p *parser) subexpr(limit int) Expr {
 		e1 = exprInfo(&Operator{Op: op, Right: p.subexpr(12)}, line)
 	} else {
 		e1 = p.value()
+	}
+
+	if p.l.look.Type == tknComment {
+		p.l.advance()
 	}
 
 	// Then grab the right hand side. The old right then becomes the new left until we cannot find
@@ -332,6 +339,9 @@ func (p *parser) value() Expr {
 	case tknString:
 		p.l.getCurrent(tknString)
 		return exprInfo(&ConstString{Value: p.l.current.Lexeme}, p.l.current.Line)
+	case tknComment:
+		p.l.getCurrent(tknComment)
+		return exprInfo(&Comment{Text: p.l.current.Lexeme}, p.l.current.Line)
 	default:
 		return p.suffixedValue()
 	}

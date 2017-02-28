@@ -231,6 +231,8 @@ func exprInfo(n Expr, line int) Expr {
 		k = ConstVariadicNode
 	case *ConstIdent:
 		k = ConstIdentNode
+	case *Comment:
+		k = CommentNode
 	}
 	n.setKind(k)
 	n.setLine(line)

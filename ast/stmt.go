@@ -121,3 +121,5 @@ type Comment struct {
 
 	Text string
 }
+
+func (Comment) exprMark() {}

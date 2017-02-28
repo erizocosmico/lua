@@ -22,9 +22,14 @@ misrepresented as being the original software.
 
 package ast
 
-import "strings"
-import "unicode"
-import "github.com/milochristiansen/lua/luautil"
+import (
+	"fmt"
+	"runtime"
+	"strings"
+	"unicode"
+
+	"github.com/milochristiansen/lua/luautil"
+)
 
 const (
 	tknINVALID = iota - 1 // Invalid
@@ -401,6 +406,12 @@ func (lex *lexer) getCurrent(tokenTypes ...int) {
 		if lex.current.Type == val {
 			return
 		}
+	}
+
+	// ignores comment in the middle of other statements and expressions
+	if lex.current.Type == tknComment {
+		lex.getCurrent(tokenTypes...)
+		return
 	}
 
 	exitOnTokenExpected(lex.current, tokenTypes...)
@@ -894,6 +905,7 @@ func tokenTypeToString(typ int) string {
 		"}",
 		"(",
 		")",
+		"<comment>",
 
 		// Values
 		"<integer>",
@@ -912,6 +924,8 @@ func tokenTypeToString(typ int) string {
 //	Invalid token: Found: thecurrenttoken (Lexeme: test). Expected: expected.
 // If the lexeme is long (>20 chars) it is truncated.
 func exitOnTokenExpected(token *token, expected ...int) {
+	_, file, line, x := runtime.Caller(2)
+	fmt.Println(file, line, x)
 	expectedString := ""
 	expectedCount := len(expected) - 1
 	for i, val := range expected {
