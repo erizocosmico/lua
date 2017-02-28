@@ -28,7 +28,7 @@ func (p *parser) ident() Expr {
 	p.l.getCurrent(tknName)
 	ident := exprInfo(&ConstIdent{
 		Value: p.l.current.Lexeme,
-	}, p.l.current.Line)
+	}, p.l.current.Line, p.l.current.Col)
 
 	for p.l.checkLook(tknOIndex, tknDot) {
 		switch p.l.look.Type {
@@ -36,22 +36,24 @@ func (p *parser) ident() Expr {
 			p.l.getCurrent(tknOIndex)
 
 			line := p.l.current.Line
+			col := p.l.current.Col
 			ident = exprInfo(&TableAccessor{
 				Obj: ident,
 				Key: p.expression(),
-			}, line)
+			}, line, col)
 
 			p.l.getCurrent(tknCIndex)
 		case tknDot: // .ident
 			p.l.getCurrent(tknDot)
 			line := p.l.current.Line
+			col := p.l.current.Col
 			p.l.getCurrent(tknName)
 			ident = exprInfo(&TableAccessor{
 				Obj: ident,
 				Key: exprInfo(&ConstString{
 					Value: p.l.current.Lexeme,
-				}, p.l.current.Line),
-			}, line)
+				}, p.l.current.Line, p.l.current.Col),
+			}, line, col)
 		default:
 			panic("IMPOSSIBLE")
 		}
@@ -62,6 +64,7 @@ func (p *parser) ident() Expr {
 // Handle a function call. The name must be already read (minus a method name if any).
 func (p *parser) funcCall(ident Expr) Expr {
 	line := p.l.current.Line
+	col := p.l.current.Col
 	var r, f Expr
 	if p.l.checkLook(tknColon) {
 		p.l.getCurrent(tknColon)
@@ -69,7 +72,7 @@ func (p *parser) funcCall(ident Expr) Expr {
 		r = ident
 		f = exprInfo(&ConstString{
 			Value: p.l.current.Lexeme,
-		}, p.l.current.Line)
+		}, p.l.current.Line, p.l.current.Col)
 	} else {
 		f = ident
 	}
@@ -82,7 +85,7 @@ func (p *parser) funcCall(ident Expr) Expr {
 		p.l.getCurrent(tknString)
 		args = append(args, exprInfo(&ConstString{
 			Value: p.l.current.Lexeme,
-		}, p.l.current.Line))
+		}, p.l.current.Line, p.l.current.Col))
 	case tknOParen:
 		p.l.getCurrent(tknOParen)
 		for !p.l.checkLook(tknCParen) {
@@ -101,13 +104,14 @@ func (p *parser) funcCall(ident Expr) Expr {
 		Receiver: r,
 		Function: f,
 		Args:     args,
-	}, line)
+	}, line, col)
 }
 
 func (p *parser) funcDeclBody(hasSelf bool) Expr {
 	// Read Parameters
 	p.l.getCurrent(tknOParen)
 	line := p.l.current.Line
+	col := p.l.current.Col
 	params := []string{}
 	variadic := false
 	if hasSelf {
@@ -139,7 +143,7 @@ func (p *parser) funcDeclBody(hasSelf bool) Expr {
 		Params:     params,
 		IsVariadic: variadic,
 		Block:      block,
-	}, line)
+	}, line, col)
 }
 
 func (p *parser) tblConstruct() Expr {
@@ -147,6 +151,7 @@ func (p *parser) tblConstruct() Expr {
 
 	p.l.getCurrent(tknOBracket)
 	line := p.l.current.Line
+	col := p.l.current.Col
 
 	for !p.l.checkLook(tknCBracket) {
 		switch p.l.look.Type {
@@ -156,7 +161,7 @@ func (p *parser) tblConstruct() Expr {
 				break
 			}
 			p.l.getCurrent(tknName)
-			keys = append(keys, exprInfo(&ConstString{Value: p.l.current.Lexeme}, p.l.current.Line))
+			keys = append(keys, exprInfo(&ConstString{Value: p.l.current.Lexeme}, p.l.current.Line, p.l.current.Col))
 			p.l.getCurrent(tknSet)
 		case tknOIndex:
 			p.l.getCurrent(tknOIndex)
@@ -179,7 +184,7 @@ func (p *parser) tblConstruct() Expr {
 	return exprInfo(&TableConstructor{
 		Keys: keys,
 		Vals: vals,
-	}, line)
+	}, line, col)
 }
 
 func (p *parser) expression() Expr {
@@ -288,7 +293,8 @@ func (p *parser) subexpr(limit int) Expr {
 	if ok {
 		p.l.advance()
 		line := p.l.current.Line
-		e1 = exprInfo(&Operator{Op: op, Right: p.subexpr(12)}, line)
+		col := p.l.current.Col
+		e1 = exprInfo(&Operator{Op: op, Right: p.subexpr(12)}, line, col)
 	} else {
 		e1 = p.value()
 	}
@@ -303,7 +309,8 @@ func (p *parser) subexpr(limit int) Expr {
 	for ok && priorities[op].left > limit {
 		p.l.advance()
 		line := p.l.current.Line
-		e1 = exprInfo(&Operator{Op: op, Left: e1, Right: p.subexpr(priorities[op].right)}, line)
+		col := p.l.current.Col
+		e1 = exprInfo(&Operator{Op: op, Left: e1, Right: p.subexpr(priorities[op].right)}, line, col)
 
 		op, ok = tknToBinOp[p.l.look.Type]
 	}
@@ -320,28 +327,28 @@ func (p *parser) value() Expr {
 		return p.funcDeclBody(false)
 	case tknTrue:
 		p.l.getCurrent(tknTrue)
-		return exprInfo(&ConstBool{Value: true}, p.l.current.Line)
+		return exprInfo(&ConstBool{Value: true}, p.l.current.Line, p.l.current.Col)
 	case tknFalse:
 		p.l.getCurrent(tknFalse)
-		return exprInfo(&ConstBool{Value: false}, p.l.current.Line)
+		return exprInfo(&ConstBool{Value: false}, p.l.current.Line, p.l.current.Col)
 	case tknNil:
 		p.l.getCurrent(tknNil)
-		return exprInfo(&ConstNil{}, p.l.current.Line)
+		return exprInfo(&ConstNil{}, p.l.current.Line, p.l.current.Col)
 	case tknVariadic:
 		p.l.getCurrent(tknVariadic)
-		return exprInfo(&ConstVariadic{}, p.l.current.Line)
+		return exprInfo(&ConstVariadic{}, p.l.current.Line, p.l.current.Col)
 	case tknInt:
 		p.l.getCurrent(tknInt)
-		return exprInfo(&ConstInt{Value: p.l.current.Lexeme}, p.l.current.Line)
+		return exprInfo(&ConstInt{Value: p.l.current.Lexeme}, p.l.current.Line, p.l.current.Col)
 	case tknFloat:
 		p.l.getCurrent(tknFloat)
-		return exprInfo(&ConstFloat{Value: p.l.current.Lexeme}, p.l.current.Line)
+		return exprInfo(&ConstFloat{Value: p.l.current.Lexeme}, p.l.current.Line, p.l.current.Col)
 	case tknString:
 		p.l.getCurrent(tknString)
-		return exprInfo(&ConstString{Value: p.l.current.Lexeme}, p.l.current.Line)
+		return exprInfo(&ConstString{Value: p.l.current.Lexeme}, p.l.current.Line, p.l.current.Col)
 	case tknComment:
 		p.l.getCurrent(tknComment)
-		return exprInfo(&Comment{Text: p.l.current.Lexeme}, p.l.current.Line)
+		return exprInfo(&Comment{Text: p.l.current.Lexeme}, p.l.current.Line, p.l.current.Col)
 	default:
 		return p.suffixedValue()
 	}
@@ -356,30 +363,32 @@ func (p *parser) suffixedValue() Expr {
 			p.l.getCurrent(tknOIndex)
 
 			line := p.l.current.Line
+			col := p.l.current.Col
 			l = exprInfo(&TableAccessor{
 				Obj: l,
 				Key: p.expression(),
-			}, line)
+			}, line, col)
 
 			p.l.getCurrent(tknCIndex)
 		case tknDot: // .ident or .ident() or .ident:ident()
 			p.l.getCurrent(tknDot)
 			line := p.l.current.Line
+			col := p.l.current.Col
 			p.l.getCurrent(tknName)
 			if p.l.checkLook(tknColon, tknOParen) {
 				l = p.funcCall(exprInfo(&TableAccessor{
 					Obj: l,
 					Key: exprInfo(&ConstString{
 						Value: p.l.current.Lexeme,
-					}, p.l.current.Line),
-				}, line))
+					}, p.l.current.Line, p.l.current.Col),
+				}, line, col))
 			} else {
 				l = exprInfo(&TableAccessor{
 					Obj: l,
 					Key: exprInfo(&ConstString{
 						Value: p.l.current.Lexeme,
-					}, p.l.current.Line),
-				}, line)
+					}, p.l.current.Line, p.l.current.Col),
+				}, line, col)
 			}
 		case tknColon, tknOParen, tknString, tknOBracket:
 			l = p.funcCall(l)
@@ -395,14 +404,15 @@ func (p *parser) primaryValue() Expr {
 		p.l.getCurrent(tknName)
 		return exprInfo(&ConstIdent{
 			Value: p.l.current.Lexeme,
-		}, p.l.current.Line)
+		}, p.l.current.Line, p.l.current.Col)
 	case tknOParen:
 		p.l.getCurrent(tknOParen)
 
 		line := p.l.current.Line
+		col := p.l.current.Col
 		l := exprInfo(&Parens{
 			Inner: p.expression(),
-		}, line)
+		}, line, col)
 
 		p.l.getCurrent(tknCParen)
 		return l

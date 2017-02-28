@@ -27,13 +27,13 @@ type Assign struct {
 	stmtBase
 
 	// Is this a local variable declaration statement?
-	LocalDecl bool
+	LocalDecl bool `json:"local_decl"`
 
 	// Special case handling for "local function f() end", this should be treated like "local f; f = function() end".
-	LocalFunc bool
+	LocalFunc bool `json:"local_func"`
 
-	Targets []Expr
-	Values  []Expr // If len == 0 no values were given, if len == 1 then the value may be a multi-return function call.
+	Targets []Expr `json:"targets"`
+	Values  []Expr `json:"values"` // If len == 0 no values were given, if len == 1 then the value may be a multi-return function call.
 }
 
 // FuncCall is declared in the expression parts file (it is both an Expr and a Stmt).
@@ -42,7 +42,7 @@ type Assign struct {
 type DoBlock struct {
 	stmtBase
 
-	Block []Stmt
+	Block []Stmt `json:"block"`
 }
 
 // If represents an if statement.
@@ -50,48 +50,48 @@ type DoBlock struct {
 type If struct {
 	stmtBase
 
-	Cond Expr
-	Then []Stmt
-	Else []Stmt
+	Cond Expr   `json:"cond"`
+	Then []Stmt `json:"then"`
+	Else []Stmt `json:"else"`
 }
 
 // WhileLoop represents a while loop.
 type WhileLoop struct {
 	stmtBase
 
-	Cond  Expr
-	Block []Stmt
+	Cond  Expr   `json:"cond"`
+	Block []Stmt `json:"block"`
 }
 
 // RepeatUntilLoop represents a repeat-until loop.
 type RepeatUntilLoop struct {
 	stmtBase
 
-	Cond  Expr
-	Block []Stmt
+	Cond  Expr   `json:"cond"`
+	Block []Stmt `json:"block"`
 }
 
 // ForLoopNumeric represents a numeric for loop.
 type ForLoopNumeric struct {
 	stmtBase
 
-	Counter string
+	Counter string `json:"counter"`
 
-	Init  Expr
-	Limit Expr
-	Step  Expr
+	Init  Expr `json:"init"`
+	Limit Expr `json:"limit"`
+	Step  Expr `json:"step"`
 
-	Block []Stmt
+	Block []Stmt `json:"block"`
 }
 
 // ForLoopGeneric represents a generic for loop.
 type ForLoopGeneric struct {
 	stmtBase
 
-	Locals []string
-	Init   []Expr // This will always be adjusted to three return results, but AFAIK there is no actual limit on expression count.
+	Locals []string `json:"locals"`
+	Init   []Expr   `json:"expr"` // This will always be adjusted to three return results, but AFAIK there is no actual limit on expression count.
 
-	Block []Stmt
+	Block []Stmt `json:"block"`
 }
 
 type Goto struct {
@@ -100,26 +100,27 @@ type Goto struct {
 	// True if this Goto is actually a break statement. There is no matching label.
 	// If Label is not "break" then this is actually a continue statement (a custom
 	// extension that the default lexer/parser does not use).
-	IsBreak bool
-	Label   string
+	IsBreak    bool   `json:"is_break"`
+	IsContinue bool   `json:"is_continue"`
+	Label      string `json:"label"`
 }
 
 type Label struct {
 	stmtBase
 
-	Label string
+	Label string `json:"label"`
 }
 
 type Return struct {
 	stmtBase
 
-	Items []Expr
+	Items []Expr `json:"items"`
 }
 
 type Comment struct {
 	stmtBase
 
-	Text string
+	Text string `json:"text"`
 }
 
 func (Comment) exprMark() {}

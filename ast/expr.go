@@ -107,9 +107,9 @@ func (o opTyp) String() string {
 type Operator struct {
 	exprBase
 
-	Op    opTyp
-	Left  Expr // Nil if operator is unary
-	Right Expr
+	Op    opTyp `json:"type"`
+	Left  Expr  `json:"lhs"` // Nil if operator is unary
+	Right Expr  `json:"rhs"`
 }
 
 // FuncCall represents a function call.
@@ -117,9 +117,9 @@ type Operator struct {
 type FuncCall struct {
 	exprBase
 
-	Receiver Expr // The call receiver if any (the part before the ':')
-	Function Expr // The function value itself, if Receiver is provided this is the part *after* the colon, else it is the whole name.
-	Args     []Expr
+	Receiver Expr   `json:"receiver"` // The call receiver if any (the part before the ':')
+	Function Expr   `json:"function"` // The function value itself, if Receiver is provided this is the part *after* the colon, else it is the whole name.
+	Args     []Expr `json:"args"`
 }
 
 func (s *FuncCall) stmtMark() {}
@@ -128,70 +128,70 @@ func (s *FuncCall) stmtMark() {}
 type FuncDecl struct {
 	exprBase
 
-	Params     []string
-	IsVariadic bool
+	Params     []string `json:"params"`
+	IsVariadic bool     `json:"is_variadic"`
 
-	Source string
+	Source string `json:"source"`
 
-	Block []Stmt
+	Block []Stmt `json:"block"`
 }
 
 // TableConstructor represents a table constructor.
 type TableConstructor struct {
 	exprBase
 
-	Keys []Expr // A nil key for a particular position means that no key was given.
-	Vals []Expr
+	Keys []Expr `json:"keys"` // A nil key for a particular position means that no key was given.
+	Vals []Expr `json:"vals"`
 }
 
 // TableAccessor represents a table access expression, one of `a.b` or `a[b]`.
 type TableAccessor struct {
 	exprBase
 
-	Obj Expr
-	Key Expr
+	Obj Expr `json:"obj"`
+	Key Expr `json:"key"`
 }
 
 // Parens represents a pair of parenthesis and the expression inside of them.
 type Parens struct {
 	exprBase
 
-	Inner Expr
+	Inner Expr `json:"inner"`
 }
 
 // ConstInt stores an integer constant.
 type ConstInt struct {
 	exprBase
 
-	Value string
+	Value string `json:"value"`
 }
 
 // ConstFloat stores a floating point constant.
 type ConstFloat struct {
 	exprBase
 
-	Value string
+	Value string `json:"value"`
 }
 
 // ConstString stores a string constant.
 type ConstString struct {
 	exprBase
 
-	Value string
+	Value string `json:"value"`
 }
 
 // ConstIdent stores an identifier constant.
 type ConstIdent struct {
 	exprBase
 
-	Value string
+	Value string `json:"value"`
 }
 
 // ConstBool represents a boolean constant.
 type ConstBool struct {
 	exprBase
 
-	Value bool
+	Value bool `json:"value"`
 }
 
 // ConstNil represents the constant "nil".

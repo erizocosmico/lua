@@ -31,6 +31,8 @@ type Node interface {
 	nodeMark()
 	GetLine() int
 	setLine(int)
+	GetCol() int
+	setCol(int)
 	GetKind() NodeKind
 	setKind(NodeKind)
 }
@@ -108,13 +110,16 @@ func (o NodeKind) String() string {
 }
 
 type nodeBase struct {
-	Kind NodeKind
-	Line int
+	Kind NodeKind `json:"kind"`
+	Line int      `json:"line"`
+	Col  int      `json:"col"`
 }
 
 func (nodeBase) nodeMark()             {}
 func (n nodeBase) GetLine() int        { return n.Line }
 func (n *nodeBase) setLine(l int)      { n.Line = l }
+func (n nodeBase) GetCol() int         { return n.Col }
+func (n *nodeBase) setCol(l int)       { n.Col = l }
 func (n nodeBase) GetKind() NodeKind   { return n.Kind }
 func (n *nodeBase) setKind(k NodeKind) { n.Kind = k }
 
@@ -170,7 +175,7 @@ func remove(b []Stmt, at int) []Stmt {
 }
 
 // stmtInfo attaches line information to a Stmt and returns the Stmt.
-func stmtInfo(n Stmt, line int) Stmt {
+func stmtInfo(n Stmt, line, col int) Stmt {
 	var k NodeKind
 	switch n.(type) {
 	case *Comment:
@@ -198,11 +203,12 @@ func stmtInfo(n Stmt, line int) Stmt {
 	}
 	n.setKind(k)
 	n.setLine(line)
+	n.setCol(col)
 	return n
 }
 
 // exprInfo attaches line information to a Expr and returns the Expr.
-func exprInfo(n Expr, line int) Expr {
+func exprInfo(n Expr, line, col int) Expr {
 	var k NodeKind
 	switch n.(type) {
 	case *FuncDecl:
@@ -236,6 +242,7 @@ func exprInfo(n Expr, line int) Expr {
 	}
 	n.setKind(k)
 	n.setLine(line)
+	n.setCol(col)
 	return n
 }
 

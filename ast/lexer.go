@@ -143,8 +143,10 @@ type lexer struct {
 	source *strings.Reader
 	line   int
 	char   rune
+	col    int
 	nline  int // Keep some lookahead information around.
 	nchar  rune
+	ncol   int
 	eof    bool // true if there are no more chars to read
 	neof   bool // true if nchar is invalid (next call to next will trigger EOF)
 
@@ -152,6 +154,7 @@ type lexer struct {
 
 	token     int
 	tokenline int
+	tokencol  int
 
 	strdepth int
 	objdepth int
@@ -165,11 +168,14 @@ func newLexer(source string, line int) *lexer {
 
 	lex.line = line
 	lex.nline = line
+	lex.col = 0
+	lex.ncol = 0
 
 	lex.lexeme = make([]rune, 0, 20)
 
 	lex.token = tknINVALID
 	lex.tokenline = line
+	lex.tokencol = 0
 
 	lex.strdepth = 0
 	lex.objdepth = 0
@@ -177,8 +183,8 @@ func newLexer(source string, line int) *lexer {
 	// prime the pump
 	lex.nextchar()
 	lex.nextchar()
-	lex.exlook = &token{"INVALID", tknINVALID, lex.tokenline}
-	lex.look = &token{"INVALID", tknINVALID, lex.tokenline}
+	lex.exlook = &token{"INVALID", tknINVALID, lex.tokenline, lex.tokencol}
+	lex.look = &token{"INVALID", tknINVALID, lex.tokenline, lex.tokencol}
 	lex.advance()
 	lex.advance()
 
@@ -190,18 +196,19 @@ func newLexer(source string, line int) *lexer {
 func (lex *lexer) advance() {
 	lex.current, lex.look = lex.look, lex.exlook
 	if lex.eof {
-		lex.exlook = &token{"EOF", tknINVALID, lex.tokenline}
+		lex.exlook = &token{"EOF", tknINVALID, lex.tokenline, lex.tokencol}
 		return
 	}
 
 	lex.eatWS()
 	if lex.eof {
-		lex.exlook = &token{"EOF", tknINVALID, lex.tokenline}
+		lex.exlook = &token{"EOF", tknINVALID, lex.tokenline, lex.tokencol}
 		return
 	}
 
 	// We are at the beginning of a token
 	lex.tokenline = lex.line
+	lex.tokencol = lex.col
 	switch lex.char {
 	case ';':
 		lex.makeToken(tknUnnecessary)
@@ -209,9 +216,8 @@ func (lex *lexer) advance() {
 		lex.makeToken(tknAdd)
 	case '-':
 		if lex.nchar == '-' {
-			initLine := lex.tokenline
 			lex.makeComment()
-			lex.exlook = &token{strings.TrimSpace(string(lex.lexeme)), tknComment, initLine}
+			lex.exlook = &token{strings.TrimSpace(string(lex.lexeme)), tknComment, lex.tokenline, lex.tokencol}
 		} else {
 			lex.makeToken(tknSub)
 		}
@@ -361,7 +367,7 @@ func (lex *lexer) advance() {
 			lex.addLexeme()
 			lex.nextchar()
 		}
-		lex.exlook = &token{string(lex.lexeme), tknString, lex.tokenline}
+		lex.exlook = &token{string(lex.lexeme), tknString, lex.tokenline, lex.tokencol}
 	case ']':
 		lex.makeToken(tknCIndex)
 	case '{':
@@ -385,7 +391,7 @@ func (lex *lexer) advance() {
 			}
 
 			ident := string(lex.lexeme)
-			lex.exlook = &token{ident, keyword(ident), lex.tokenline}
+			lex.exlook = &token{ident, keyword(ident), lex.tokenline, lex.tokencol}
 		} else if lex.matchNumeric() {
 			lex.matchNumber()
 		} else {
@@ -490,6 +496,10 @@ func (lex *lexer) nextchar() {
 
 	lex.char = lex.nchar
 	lex.line = lex.nline
+	lex.col = lex.ncol
+	if lex.nchar == '\n' || lex.nchar == '\r' {
+		lex.ncol = 0
+	}
 
 	// Read the next char. This does a lot of special stuff to handle all possible types
 	// of line endings (as required by the stupid Lua spec). The only place special handling
@@ -497,6 +507,7 @@ func (lex *lexer) nextchar() {
 	// "\r\n", and "\n\r" should all collapse to "\n".
 again:
 	lex.nchar, _, err = lex.source.ReadRune() // err should only ever be io.EOF
+	lex.ncol++
 	if err != nil {
 		if prevNL == '\n' || prevNL == '\r' {
 			lex.nchar = '\n'
@@ -531,6 +542,7 @@ again:
 	if prevNL == '\n' || prevNL == '\r' {
 		lex.nchar = '\n'
 		lex.nline++
+		lex.ncol--
 		lex.source.UnreadRune()
 		return
 	}
@@ -545,7 +557,7 @@ func (lex *lexer) addLexeme() {
 
 // Add the current char to the lexeme buffer.
 func (lex *lexer) makeToken(tkn int) {
-	lex.exlook = &token{"", tkn, lex.tokenline}
+	lex.exlook = &token{"", tkn, lex.tokenline, lex.tokencol}
 	lex.nextchar()
 }
 
@@ -689,10 +701,10 @@ func (lex *lexer) matchNumber() {
 		luautil.Raise("Invalid numeric literal", luautil.ErrTypGenLexer)
 	}
 	if iok {
-		lex.exlook = &token{n, tknInt, lex.tokenline}
+		lex.exlook = &token{n, tknInt, lex.tokenline, lex.tokencol}
 		return
 	}
-	lex.exlook = &token{n, tknFloat, lex.tokenline}
+	lex.exlook = &token{n, tknFloat, lex.tokenline, lex.tokencol}
 }
 
 func hexval(r rune) rune {
@@ -713,7 +725,7 @@ func (lex *lexer) matchString(delim rune) {
 		luautil.Raise("Unexpected EOF while reading a string", luautil.ErrTypGenLexer)
 	}
 	if lex.char == delim {
-		lex.exlook = &token{"", tknString, lex.tokenline}
+		lex.exlook = &token{"", tknString, lex.tokenline, lex.tokencol}
 		lex.nextchar()
 		return
 	}
@@ -824,7 +836,7 @@ func (lex *lexer) matchString(delim rune) {
 		lex.nextchar()
 	}
 	lex.nextchar()
-	lex.exlook = &token{string(lex.lexeme), tknString, lex.tokenline}
+	lex.exlook = &token{string(lex.lexeme), tknString, lex.tokenline, lex.tokencol}
 	return
 }
 
@@ -834,6 +846,7 @@ type token struct {
 	Lexeme string
 	Type   int
 	Line   int
+	Col    int
 }
 
 func (t *token) String() string {

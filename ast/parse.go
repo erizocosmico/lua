@@ -70,7 +70,7 @@ func (p *parser) funcDeclStat(local bool) Stmt {
 		LocalFunc: local,
 		Targets:   []Expr{nil},
 		Values:    []Expr{nil},
-	}, p.l.current.Line)
+	}, p.l.current.Line, p.l.current.Col)
 
 	// Read Name
 	var ident Expr
@@ -79,20 +79,21 @@ func (p *parser) funcDeclStat(local bool) Stmt {
 		p.l.getCurrent(tknName)
 		ident = exprInfo(&ConstIdent{
 			Value: p.l.current.Lexeme,
-		}, p.l.current.Line)
+		}, p.l.current.Line, p.l.current.Col)
 	} else {
 		ident = p.ident()
 		if p.l.checkLook(tknColon) {
 			hasSelf = true
 			p.l.getCurrent(tknColon)
 			line := p.l.current.Line
+			col := p.l.current.Col
 			p.l.getCurrent(tknName)
 			ident = exprInfo(&TableAccessor{
 				Obj: ident,
 				Key: exprInfo(&ConstString{
 					Value: p.l.current.Lexeme,
-				}, p.l.current.Line),
-			}, line)
+				}, p.l.current.Line, p.l.current.Col),
+			}, line, col)
 		}
 	}
 	node.(*Assign).Targets[0] = ident
@@ -116,13 +117,14 @@ func (p *parser) statement() Stmt {
 	switch p.l.look.Type {
 	case tknUnnecessary: // ;
 		p.l.getCurrent(tknUnnecessary)
-		return stmtInfo(&DoBlock{Block: nil}, p.l.current.Line) // FIXME!
+		return stmtInfo(&DoBlock{Block: nil}, p.l.current.Line, p.l.current.Col) // FIXME!
 	case tknIf:
 		p.l.getCurrent(tknIf)
 		line := p.l.current.Line
+		col := p.l.current.Col
 		node := stmtInfo(&If{
 			Cond: p.expression(),
-		}, line)
+		}, line, col)
 		rnode := node
 		p.l.getCurrent(tknThen)
 		node.(*If).Then = p.block(tknElse, tknElseif, tknEnd)
@@ -134,10 +136,11 @@ func (p *parser) statement() Stmt {
 				break loop
 			case tknElseif:
 				line := p.l.current.Line
+				col := p.l.current.Col
 				pnode := node
 				node = stmtInfo(&If{
 					Cond: p.expression(),
-				}, line)
+				}, line, col)
 
 				p.l.getCurrent(tknThen)
 
@@ -154,25 +157,29 @@ func (p *parser) statement() Stmt {
 	case tknComment:
 		p.l.getCurrent(tknComment)
 		line := p.l.current.Line
+		col := p.l.current.Col
 		comment := p.l.current.Lexeme
-		return stmtInfo(&Comment{Text: comment}, line)
+		return stmtInfo(&Comment{Text: comment}, line, col)
 	case tknWhile:
 		p.l.getCurrent(tknWhile)
 		line := p.l.current.Line
+		col := p.l.current.Col
 		cond := p.expression()
 		p.l.getCurrent(tknDo)
 		return stmtInfo(&WhileLoop{
 			Cond:  cond,
 			Block: p.block(tknEnd),
-		}, line)
+		}, line, col)
 	case tknDo:
 		p.l.getCurrent(tknDo)
 		line := p.l.current.Line
+		col := p.l.current.Col
 		rtn := p.block(tknEnd)
-		return stmtInfo(&DoBlock{Block: rtn}, line)
+		return stmtInfo(&DoBlock{Block: rtn}, line, col)
 	case tknFor:
 		p.l.getCurrent(tknFor)
 		line := p.l.current.Line
+		col := p.l.current.Col
 
 		// Numeric: var = a, b, c
 		counter := ""
@@ -195,7 +202,7 @@ func (p *parser) statement() Stmt {
 				p.l.getCurrent(tknSeperator)
 				s = p.expression()
 			} else {
-				s = exprInfo(&ConstInt{Value: "1"}, p.l.current.Line)
+				s = exprInfo(&ConstInt{Value: "1"}, p.l.current.Line, p.l.current.Col)
 			}
 		} else {
 			for {
@@ -223,26 +230,28 @@ func (p *parser) statement() Stmt {
 				Limit:   l,
 				Step:    s,
 				Block:   p.block(tknEnd),
-			}, line)
+			}, line, col)
 		}
 		return stmtInfo(&ForLoopGeneric{
 			Locals: locals,
 			Init:   init,
 			Block:  p.block(tknEnd),
-		}, line)
+		}, line, col)
 	case tknRepeat:
 		p.l.getCurrent(tknRepeat)
 		line := p.l.current.Line
+		col := p.l.current.Col
 		blk := p.block(tknUntil)
 		return stmtInfo(&RepeatUntilLoop{
 			Cond:  p.expression(),
 			Block: blk,
-		}, line)
+		}, line, col)
 	case tknFunction:
 		return p.funcDeclStat(false)
 	case tknLocal:
 		p.l.getCurrent(tknLocal)
 		line := p.l.current.Line
+		col := p.l.current.Col
 		if p.l.checkLook(tknFunction) {
 			// This is incorrect, "local function f" should translate to "local f; f = function" not "local f = function".
 			// The compiler has some special case code to correct this.
@@ -255,7 +264,7 @@ func (p *parser) statement() Stmt {
 			p.l.getCurrent(tknName)
 			targets = append(targets, exprInfo(&ConstIdent{
 				Value: p.l.current.Lexeme,
-			}, p.l.current.Line))
+			}, p.l.current.Line, p.l.current.Col))
 			if !p.l.checkLook(tknSeperator) {
 				break
 			}
@@ -275,17 +284,19 @@ func (p *parser) statement() Stmt {
 			LocalDecl: true,
 			Targets:   targets,
 			Values:    vals,
-		}, line)
+		}, line, col)
 	case tknDblColon:
 		p.l.getCurrent(tknDblColon)
 		line := p.l.current.Line
+		col := p.l.current.Col
 		p.l.getCurrent(tknName)
 		lbl := p.l.current.Lexeme
 		p.l.getCurrent(tknDblColon)
-		return stmtInfo(&Label{Label: lbl}, line)
+		return stmtInfo(&Label{Label: lbl}, line, col)
 	case tknReturn:
 		p.l.getCurrent(tknReturn)
 		line := p.l.current.Line
+		col := p.l.current.Col
 		items := []Expr{}
 		for !p.l.checkLook(tknEnd, tknElse, tknElseif, tknUntil, tknUnnecessary, tknINVALID) {
 			items = append(items, p.expression())
@@ -294,18 +305,19 @@ func (p *parser) statement() Stmt {
 			}
 			p.l.getCurrent(tknSeperator)
 		}
-		return stmtInfo(&Return{Items: items}, line)
+		return stmtInfo(&Return{Items: items}, line, col)
 	case tknBreak:
 		p.l.getCurrent(tknBreak)
-		return stmtInfo(&Goto{Label: "break", IsBreak: true}, p.l.current.Line)
+		return stmtInfo(&Goto{Label: "break", IsBreak: true}, p.l.current.Line, p.l.current.Col)
 	case tknContinue:
 		p.l.getCurrent(tknContinue)
-		return stmtInfo(&Goto{Label: "continue", IsBreak: true}, p.l.current.Line)
+		return stmtInfo(&Goto{Label: "continue", IsContinue: true}, p.l.current.Line, p.l.current.Col)
 	case tknGoto:
 		p.l.getCurrent(tknGoto)
 		line := p.l.current.Line
+		col := p.l.current.Col
 		p.l.getCurrent(tknName)
-		return stmtInfo(&Goto{Label: p.l.current.Lexeme}, line)
+		return stmtInfo(&Goto{Label: p.l.current.Lexeme}, line, col)
 	case tknOParen:
 		p.l.getCurrent(tknOParen)
 		ident := p.expression()
@@ -314,6 +326,7 @@ func (p *parser) statement() Stmt {
 	default:
 		ident := p.suffixedValue()
 		line := p.l.current.Line
+		col := p.l.current.Col
 		if v, ok := ident.(*FuncCall); ok {
 			return Stmt(v)
 		}
@@ -332,7 +345,7 @@ func (p *parser) statement() Stmt {
 		return stmtInfo(&Assign{
 			Targets: targets,
 			Values:  vals,
-		}, line)
+		}, line, col)
 	}
 	panic("UNREACHABLE")
 }
