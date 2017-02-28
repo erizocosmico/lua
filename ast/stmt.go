@@ -115,3 +115,9 @@ type Return struct {
 
 	Items []Expr
 }
+
+type Comment struct {
+	stmtBase
+
+	Text string
+}

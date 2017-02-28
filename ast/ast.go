@@ -62,6 +62,7 @@ const (
 	ConstBoolNode
 	ConstNilNode
 	ConstVariadicNode
+	CommentNode
 )
 
 var nodeKindNames = [][]byte{
@@ -89,6 +90,7 @@ var nodeKindNames = [][]byte{
 	[]byte("ConstBool"),
 	[]byte("ConstNil"),
 	[]byte("ConstVariadic"),
+	[]byte("Comment"),
 }
 
 func (o NodeKind) MarshalText() ([]byte, error) {
@@ -171,6 +173,8 @@ func remove(b []Stmt, at int) []Stmt {
 func stmtInfo(n Stmt, line int) Stmt {
 	var k NodeKind
 	switch n.(type) {
+	case *Comment:
+		k = CommentNode
 	case *Assign:
 		k = AssignNode
 	case *DoBlock:

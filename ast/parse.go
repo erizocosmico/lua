@@ -151,6 +151,11 @@ func (p *parser) statement() Stmt {
 			}
 		}
 		return rnode
+	case tknComment:
+		p.l.getCurrent(tknComment)
+		line := p.l.current.Line
+		comment := p.l.current.Lexeme
+		return stmtInfo(&Comment{Text: comment}, line)
 	case tknWhile:
 		p.l.getCurrent(tknWhile)
 		line := p.l.current.Line
@@ -294,7 +299,6 @@ func (p *parser) statement() Stmt {
 		p.l.getCurrent(tknBreak)
 		return stmtInfo(&Goto{Label: "break", IsBreak: true}, p.l.current.Line)
 	case tknContinue:
-		// The lexer will never generate this unless you uncomment the definition for the "continue" keyword.
 		p.l.getCurrent(tknContinue)
 		return stmtInfo(&Goto{Label: "continue", IsBreak: true}, p.l.current.Line)
 	case tknGoto:

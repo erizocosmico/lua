@@ -88,6 +88,7 @@ const (
 	tknCBracket    // }
 	tknOParen      // (
 	tknCParen      // )
+	tknComment
 
 	// Values
 	tknInt
@@ -97,17 +98,17 @@ const (
 )
 
 var keywords = map[string]int{
-	"and":    tknAnd,
-	"or":     tknOr,
-	"not":    tknNot,
-	"while":  tknWhile,
-	"for":    tknFor,
-	"repeat": tknRepeat,
-	"until":  tknUntil,
-	"in":     tknIn,
-	"do":     tknDo,
-	"break":  tknBreak,
-	//"continue": tknContinue, // Uncomment to enable the "continue" keyword.
+	"and":      tknAnd,
+	"or":       tknOr,
+	"not":      tknNot,
+	"while":    tknWhile,
+	"for":      tknFor,
+	"repeat":   tknRepeat,
+	"until":    tknUntil,
+	"in":       tknIn,
+	"do":       tknDo,
+	"break":    tknBreak,
+	"continue": tknContinue,
 	"end":      tknEnd,
 	"if":       tknIf,
 	"then":     tknThen,
@@ -202,7 +203,13 @@ func (lex *lexer) advance() {
 	case '+':
 		lex.makeToken(tknAdd)
 	case '-':
-		lex.makeToken(tknSub) // eatWS already eliminated any comments
+		if lex.nchar == '-' {
+			initLine := lex.tokenline
+			lex.makeComment()
+			lex.exlook = &token{strings.TrimSpace(string(lex.lexeme)), tknComment, initLine}
+		} else {
+			lex.makeToken(tknSub)
+		}
 	case '*':
 		lex.makeToken(tknMul)
 	case '/':
@@ -533,96 +540,94 @@ func (lex *lexer) makeToken(tkn int) {
 
 // Eat white space and comments.
 func (lex *lexer) eatWS() {
-	for {
-		if lex.match("-") && lex.nmatch("-") {
+	for lex.match("\n\r \t") {
+		lex.nextchar()
+		if lex.eof {
+			return
+		}
+	}
+}
+
+func (lex *lexer) makeComment() {
+	if lex.match("-") && lex.nmatch("-") {
+		lex.nextchar()
+		lex.nextchar()
+		if lex.eof {
+			return
+		}
+
+		// Is long comment?
+		if lex.match("[") && lex.nmatch("[=") {
+			i := 0
 			lex.nextchar()
+			if lex.eof {
+				return
+			}
+			for lex.match("=") {
+				i++
+				lex.nextchar()
+				if lex.eof {
+					return
+				}
+			}
 			lex.nextchar()
 			if lex.eof {
 				return
 			}
 
-			// Is long comment?
-			if lex.match("[") && lex.nmatch("[=") {
-				i := 0
-				lex.nextchar()
-				if lex.eof {
-					return
-				}
-				for lex.match("=") {
-					i++
+		nextcchar:
+			for {
+				if lex.match("]") && lex.nmatch("=]") {
+					// Make sure the closing long bracket is the same level as the opener
 					lex.nextchar()
 					if lex.eof {
 						return
 					}
-				}
-				lex.nextchar()
-				if lex.eof {
-					return
-				}
 
-			nextcchar:
-				for {
-					if lex.match("]") && lex.nmatch("=]") {
-						// Make sure the closing long bracket is the same level as the opener
-						lex.nextchar()
-						if lex.eof {
-							return
-						}
-
-						if i > 0 {
-							for k := 0; k < i; k++ {
-								if !lex.match("=") {
-									continue nextcchar
-								}
-								lex.nextchar()
-								if lex.eof {
-									return
-								}
+					if i > 0 {
+						for k := 0; k < i; k++ {
+							if !lex.match("=") {
+								continue nextcchar
+							}
+							lex.nextchar()
+							if lex.eof {
+								return
 							}
 						}
-
-						if !lex.match("]") {
-							continue
-						}
-						lex.nextchar()
-						if lex.eof {
-							return
-						}
-						break
 					}
-					lex.nextchar()
-					if lex.eof {
-						return
-					}
-				}
-				continue
-			}
 
-			for {
-				if lex.match("\n") {
+					if !lex.match("]") {
+						continue
+					}
 					lex.nextchar()
 					if lex.eof {
 						return
 					}
 					break
 				}
+				lex.addLexeme()
 				lex.nextchar()
 				if lex.eof {
 					return
 				}
 			}
+			return
 		}
-		if lex.match("\n\r \t") {
+
+		for {
+			if lex.match("\n") {
+				lex.nextchar()
+				if lex.eof {
+					return
+				}
+				break
+			}
+			lex.addLexeme()
 			lex.nextchar()
 			if lex.eof {
 				return
 			}
-			continue
 		}
-		if lex.match("-") && lex.nmatch("-") {
-			continue
-		}
-		break
 	}
 }
 
